@@ -11,6 +11,21 @@ class loc():
         self.grid_lines = {}
         self.center = "CENTER"
         self.color = 0
+
+    def copy(self):
+        # Return a new loc object with the same values
+        new_obj = loc(
+            poi=[p[:] for p in self.poi],  # copy coordinates
+            prod=self.prod,
+            dem=self.dem,
+            store=self.store,
+            type=self.type
+        )
+        new_obj.net_ex = self.net_ex
+        new_obj.grid_lines = self.grid_lines.copy()
+        new_obj.center = self.center
+        new_obj.color = self.color
+        return new_obj
     
     @property
     def net(self):
@@ -173,7 +188,6 @@ def storage_opt(exceeding , storable ,  ENERGY_BOOK , loss_of_energy): #fix
             e.net -= supply * ( 1 + loss_of_energy ** dis) 
 
             if e.cap <= 0:
-                (e.type)
                 exceeding.remove(e)
 
             if st.cap >= 0:
@@ -273,3 +287,53 @@ distance([0,0], [5,3], map)
 def update_user(user_i : list[str]):
     global user_input
     user_input = user_i
+
+def start(all_loc , ENERGY_BOOK):
+    ENERGY_BOOK = run(8,6,all_loc,ENERGY_BOOK) # there is an issue due to the list being mutable
+    return ENERGY_BOOK
+
+def refresh(all_loc):
+    global ENERGY_BOOK , start_all_loc
+    start_all_loc = [l.copy() for l in all_loc]
+    ENERGY_BOOK = start(all_loc ,  ENERGY_BOOK)
+    
+from machine import Pin, I2C
+from ina219 import INA219
+import utime
+
+ENERGY_BOOK = []
+
+i2c = I2C(0, scl=Pin(22), sda=Pin(21))
+# Two INA219 sensors with different addresses
+ina1 = INA219(i2c, addr=0x40)  # default
+  # changed via A0/A1 config
+
+pot1 = loc([[0,0]] , 3 , 10 , 10 , "DIAL1" )
+pot2 = loc([[5,0]] , 2 , 10 , 10 , "DIAL2" )
+
+bio = loc([[5,0]] , 20 , 5 , 10 , "bio-mass")
+coal = loc([[5,5]] , 15 , 5 , 10 , "coal")
+
+all_loc = [pot1 , pot2 , bio , coal]
+
+#pins
+led1 = Pin(23 , Pin.OUT)
+while True:
+    #(1 , utime.time() , ina1.power())
+    
+    volt = ina1.power()
+    
+    if volt > 0.5:
+        led1.value(1)
+        pot1.dem = 10
+        refresh(all_loc)
+        
+    else:
+        led1.value(0)
+        pot1.dem = 5
+        refresh(all_loc)
+        
+    utime.sleep(0.5)
+    
+
+
